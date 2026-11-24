@@ -2,84 +2,714 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Turbo Racer 3D</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
 <style>
-*{box-sizing:border-box}body{margin:0;background:#101827;color:#fff;font-family:system-ui,sans-serif;display:flex;justify-content:center;min-height:100vh;padding:18px}
-main{width:min(100%,650px);text-align:center}.stats{display:flex;justify-content:space-between;max-width:620px;margin:0 auto 10px}.stats small{display:block;color:#bdc7d5}.stats strong{font-size:1.45rem}
-#stage{position:relative;width:100%;height:min(70vh,650px);min-height:440px;border:3px solid #64748b;border-radius:16px;overflow:hidden;background:#87ceeb}
-#game{width:100%;height:100%;display:block;touch-action:none}
-#overlay{position:absolute;inset:0;background:#07111dcc;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:22px}
-h1{margin:8px 0;font-size:clamp(1.8rem,6vw,2.6rem)}p{margin:8px 0 20px;color:#e2e8f0}
-button{border:0;border-radius:12px;padding:13px 22px;font-size:1rem;font-weight:850;background:#2563eb;color:white;cursor:pointer;touch-action:manipulation}
-.controls{display:flex;justify-content:center;gap:28px;margin:12px}.controls button{font-size:1.5rem;min-width:92px;background:#3b4656}
-.hint{font-size:.9rem;color:#cbd5e1;margin:8px}
+  * {
+    box-sizing: border-box;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  body {
+    margin: 0;
+    background: #090d16;
+    color: #f8fafc;
+    font-family: 'Inter', system-ui, sans-serif;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+  }
+
+  .font-racing {
+    font-family: 'Orbitron', sans-serif;
+    letter-spacing: 0.04em;
+  }
+
+  /* Glassmorphism HUD & Modal Panels */
+  .glass-panel {
+    background: rgba(15, 23, 42, 0.65);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+  }
+
+  .glass-modal {
+    background: rgba(9, 14, 26, 0.78);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.65);
+  }
+
+  #game-canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+  }
+
+  /* Custom Toggle Switch */
+  .toggle-track {
+    transition: background-color 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .toggle-thumb {
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Tactile Steering Pad Feedback */
+  .steer-btn {
+    transition: transform 0.08s ease, background-color 0.15s ease, border-color 0.15s ease;
+    touch-action: none;
+  }
+  .steer-btn:active, .steer-btn.active {
+    transform: scale(0.93);
+    background: rgba(56, 189, 248, 0.35);
+    border-color: rgba(56, 189, 248, 0.75);
+  }
 </style>
 </head>
-<body>
-<main>
-<h1>🏁 TURBO RACER 3D</h1>
-<div class="stats">
-<div><small>SCORE</small><strong id="score">0</strong></div>
-<div><small>BEST</small><strong id="best">0</strong></div>
-<div><small>SPEED</small><strong id="speed">1x</strong></div>
-</div>
-<div id="stage">
-<canvas id="game"></canvas>
-<div id="overlay"><div style="font-size:3.5rem">🏎️</div><h1>3D TURBO RACER</h1><p>Dodge traffic on a 3D highway!</p><button id="start">START RACE 🏁</button></div>
-</div>
-<div class="controls"><button id="left" aria-label="Steer left">⬅️</button><button id="right" aria-label="Steer right">➡️</button></div>
-<div class="hint">Use ← → or A / D keys, or the buttons to steer.</div>
-<div class="hint" id="status">Ready to race</div>
-</main>
+<body class="relative flex items-center justify-center">
+
+  <!-- Full-Viewport 3D Game Stage -->
+  <div id="stage" class="relative w-full h-full overflow-hidden bg-sky-300">
+    <canvas id="game-canvas"></canvas>
+
+    <!-- Top Floating Arcade HUD -->
+    <header class="pointer-events-none absolute top-0 inset-x-0 z-20 p-3 sm:p-5 flex flex-wrap items-start justify-between gap-2 sm:gap-4 max-w-6xl mx-auto">
+      
+      <!-- Left: Score & Best Pills -->
+      <div class="flex items-center gap-2 sm:gap-3">
+        <div class="glass-panel rounded-2xl px-3.5 py-2 sm:px-5 sm:py-2.5 min-w-[92px] sm:min-w-[115px]">
+          <div class="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-sky-300/90">Score</div>
+          <div id="hud-score" class="font-racing text-xl sm:text-2xl font-black text-white leading-tight">0</div>
+        </div>
+
+        <div class="glass-panel rounded-2xl px-3.5 py-2 sm:px-5 sm:py-2.5 min-w-[84px] sm:min-w-[105px]">
+          <div class="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-amber-300/90">Best</div>
+          <div id="hud-best" class="font-racing text-xl sm:text-2xl font-black text-amber-300 leading-tight">0</div>
+        </div>
+      </div>
+
+      <!-- Right: Speedometer & Live NPC Traffic Toggle -->
+      <div class="flex items-center gap-2 sm:gap-3 pointer-events-auto">
+        <!-- Quick Live Toggle Button for NPC Cars -->
+        <button id="hud-traffic-btn" type="button" title="Toggle NPC Traffic Cars"
+          class="glass-panel hover:bg-slate-800/80 active:scale-95 transition-all rounded-2xl px-3 py-2 sm:px-4 sm:py-2.5 flex items-center gap-2.5 cursor-pointer group">
+          <span id="hud-traffic-dot" class="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_10px_#34d399]"></span>
+          <div class="text-left">
+            <div class="text-[10px] font-bold uppercase tracking-wider text-slate-300">NPC Cars</div>
+            <div id="hud-traffic-label" class="text-xs sm:text-sm font-extrabold text-white">ON (Traffic)</div>
+          </div>
+        </button>
+
+        <!-- Speed Multiplier -->
+        <div class="glass-panel rounded-2xl px-3.5 py-2 sm:px-5 sm:py-2.5 text-right min-w-[82px] sm:min-w-[96px]">
+          <div class="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-cyan-300/90">Speed</div>
+          <div id="hud-speed" class="font-racing text-xl sm:text-2xl font-black text-cyan-300 leading-tight">1.0x</div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Bottom Touch Steering Controls (Mobile & Tablet Friendly, Hidden on Desktop if desired or usable anytime) -->
+    <div id="touch-controls" class="pointer-events-none absolute bottom-4 sm:bottom-6 inset-x-0 z-20 px-4 sm:px-8 flex items-center justify-between max-w-5xl mx-auto">
+      <button id="btn-left" type="button" aria-label="Steer Left"
+        class="steer-btn pointer-events-auto glass-panel w-16 h-16 sm:w-20 sm:h-20 rounded-2xl flex items-center justify-center text-white shadow-xl cursor-pointer">
+        <svg class="w-8 h-8 sm:w-9 sm:h-9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M15 18l-6-6 6-6"/>
+        </svg>
+      </button>
+
+      <!-- Subtle Keyboard / Status Pill -->
+      <div class="hidden md:flex glass-panel rounded-full px-4 py-1.5 text-xs font-semibold text-slate-200/90 items-center gap-2">
+        <span class="px-1.5 py-0.5 rounded bg-white/15 font-mono text-[11px]">←</span>
+        <span class="px-1.5 py-0.5 rounded bg-white/15 font-mono text-[11px]">→</span>
+        <span>or</span>
+        <span class="px-1.5 py-0.5 rounded bg-white/15 font-mono text-[11px]">A</span>
+        <span class="px-1.5 py-0.5 rounded bg-white/15 font-mono text-[11px]">D</span>
+        <span class="text-slate-400">to steer</span>
+      </div>
+
+      <button id="btn-right" type="button" aria-label="Steer Right"
+        class="steer-btn pointer-events-auto glass-panel w-16 h-16 sm:w-20 sm:h-20 rounded-2xl flex items-center justify-center text-white shadow-xl cursor-pointer">
+        <svg class="w-8 h-8 sm:w-9 sm:h-9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 18l6-6-6-6"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Start / Game Over Overlay Modal -->
+    <div id="overlay" class="absolute inset-0 z-30 flex items-center justify-center p-4 bg-slate-950/45 backdrop-blur-sm transition-opacity duration-200">
+      <div class="glass-modal w-full max-w-md rounded-3xl p-6 sm:p-8 text-center">
+        
+        <!-- Racing Badge Icon -->
+        <div id="modal-badge" class="mx-auto mb-4 w-16 h-16 rounded-2xl bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/30">
+          <svg class="w-9 h-9 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/>
+            <line x1="4" y1="22" x2="4" y2="15"/>
+          </svg>
+        </div>
+
+        <div id="modal-subtitle" class="text-xs font-extrabold uppercase tracking-[0.2em] text-cyan-400 mb-1">Arcade Highway</div>
+        <h1 id="modal-title" class="font-racing text-3xl sm:text-4xl font-black text-white mb-2">TURBO RACER 3D</h1>
+        <p id="modal-desc" class="text-sm sm:text-base text-slate-300 mb-6 leading-relaxed">
+          Weave through high-speed highway traffic or switch off NPC cars for a chill open-road cruise.
+        </p>
+
+        <!-- Final Score Card (Hidden on Initial Start, Shown on Game Over) -->
+        <div id="gameover-stats" class="hidden grid-cols-2 gap-3 mb-6">
+          <div class="rounded-2xl bg-white/5 border border-white/10 p-3">
+            <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Final Score</div>
+            <div id="final-score" class="font-racing text-2xl font-black text-white mt-0.5">0</div>
+          </div>
+          <div class="rounded-2xl bg-amber-400/10 border border-amber-400/20 p-3">
+            <div class="text-[11px] font-bold uppercase tracking-wider text-amber-300">Best Record</div>
+            <div id="final-best" class="font-racing text-2xl font-black text-amber-300 mt-0.5">0</div>
+          </div>
+        </div>
+
+        <!-- NPC Traffic Toggle Card inside Modal -->
+        <div class="rounded-2xl bg-white/5 border border-white/10 p-3.5 mb-6 flex items-center justify-between text-left">
+          <div>
+            <div class="text-sm font-bold text-white flex items-center gap-2">
+              <span>NPC Traffic Cars</span>
+              <span id="modal-mode-tag" class="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">Traffic Mode</span>
+            </div>
+            <div id="modal-mode-hint" class="text-xs text-slate-400 mt-0.5">Dodge oncoming highway vehicles</div>
+          </div>
+
+          <button id="modal-traffic-toggle" type="button" role="switch" aria-checked="true"
+            class="toggle-track relative inline-flex h-7 w-13 shrink-0 cursor-pointer rounded-full border-2 border-transparent bg-emerald-500 p-0.5 focus:outline-none">
+            <span id="modal-toggle-thumb" class="toggle-thumb pointer-events-none inline-block h-5 w-5 translate-x-6 rounded-full bg-white shadow-md"></span>
+          </button>
+        </div>
+
+        <!-- Primary Action Button -->
+        <button id="start-btn" type="button"
+          class="w-full py-3.5 px-6 rounded-2xl font-racing font-black text-base sm:text-lg tracking-wider text-white bg-gradient-to-r from-cyan-500 via-blue-600 to-indigo-600 hover:from-cyan-400 hover:to-blue-500 active:scale-[0.98] transition-all shadow-lg shadow-blue-600/35 cursor-pointer">
+          START RACE
+        </button>
+      </div>
+    </div>
+  </div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 (() => {
-const canvas=document.getElementById('game'),stage=document.getElementById('stage');
-const overlay=document.getElementById('overlay'),scoreEl=document.getElementById('score'),bestEl=document.getElementById('best'),speedEl=document.getElementById('speed'),statusEl=document.getElementById('status');
-if(!window.THREE){overlay.innerHTML='<h1>Unable to load 3D engine</h1><p>Check your internet connection and reload.</p>';return;}
-const scene=new THREE.Scene();scene.background=new THREE.Color(0x87ceeb);scene.fog=new THREE.Fog(0x87ceeb,35,150);
-const camera=new THREE.PerspectiveCamera(62,1,.1,220);camera.position.set(0,7.5,13);camera.lookAt(0,0,-15);
-const renderer=new THREE.WebGLRenderer({canvas,antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
-scene.add(new THREE.HemisphereLight(0xffffff,0x527044,1.5));
-const sun=new THREE.DirectionalLight(0xffffff,1.5);sun.position.set(-8,18,10);sun.castShadow=true;scene.add(sun);
-const mat=(color,roughness=.8)=>new THREE.MeshStandardMaterial({color,roughness});
-const roadMat=mat(0x343a40),grassMat=mat(0x31834a),lineMat=mat(0xf4f4f4),dark=mat(0x171b20),glass=mat(0x9ed9e8,.25);
-const road=new THREE.Mesh(new THREE.PlaneGeometry(13,220),roadMat);road.rotation.x=-Math.PI/2;road.position.z=-75;road.receiveShadow=true;scene.add(road);
-const ground=new THREE.Mesh(new THREE.PlaneGeometry(220,240),grassMat);ground.rotation.x=-Math.PI/2;ground.position.set(0,-.08,-75);ground.receiveShadow=true;scene.add(ground);
-for(const x of [-6.35,6.35]){const edge=new THREE.Mesh(new THREE.BoxGeometry(.16,.035,220),lineMat);edge.position.set(x,.025,-75);scene.add(edge);}
-const dashes=[];for(const x of [-2.15,2.15])for(let z=8;z>-210;z-=12){const m=new THREE.Mesh(new THREE.BoxGeometry(.13,.035,5),lineMat);m.position.set(x,.03,z);scene.add(m);dashes.push(m);}
-function makeCar(color){
- const g=new THREE.Group(),body=new THREE.Mesh(new THREE.BoxGeometry(1.55,.55,2.7),mat(color,.35));body.position.y=.62;body.castShadow=true;g.add(body);
- const hood=new THREE.Mesh(new THREE.BoxGeometry(1.35,.18,.72),mat(color,.3));hood.position.set(0,.94,-.78);g.add(hood);
- const cabin=new THREE.Mesh(new THREE.BoxGeometry(1.13,.62,1.22),glass);cabin.position.set(0,1.12,.22);cabin.castShadow=true;g.add(cabin);
- const roof=new THREE.Mesh(new THREE.BoxGeometry(1.1,.12,.95),mat(color,.35));roof.position.set(0,1.45,.22);g.add(roof);
- for(const x of [-.83,.83])for(const z of [-.82,.85]){const w=new THREE.Mesh(new THREE.CylinderGeometry(.28,.28,.18,16),dark);w.rotation.z=Math.PI/2;w.position.set(x,.42,z);g.add(w);}
- for(const x of [-.48,.48]){const lamp=new THREE.Mesh(new THREE.BoxGeometry(.24,.12,.06),mat(0xfff2b0));lamp.position.set(x,.75,-1.37);g.add(lamp);}
- return g;
-}
-const player=makeCar(0x06b6d4);player.position.set(0,0,5);scene.add(player);
-const traffic=[],colors=[0xef4444,0xf59e0b,0xa78bfa,0xf1f5f9,0x22c55e];
-let score=0,best=Number(localStorage.getItem('turboRacer3DBest')||0),speed=19,elapsed=0,running=false,last=0,spawn=0;
-bestEl.textContent=best;const keys={};let steer=0;
-function addTraffic(){const lane=[-4.3,0,4.3][Math.floor(Math.random()*3)],car=makeCar(colors[Math.floor(Math.random()*colors.length)]);car.scale.setScalar(.92);car.position.set(lane,0,-105);scene.add(car);traffic.push(car);}
-function resize(){const w=stage.clientWidth,h=stage.clientHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();}
-new ResizeObserver(resize).observe(stage);resize();
-function end(){running=false;if(score>best){best=score;bestEl.textContent=best;localStorage.setItem('turboRacer3DBest',best);}statusEl.textContent='Race over';overlay.style.display='flex';overlay.innerHTML=`<div style="font-size:3.5rem">💥</div><h1>RACE OVER!</h1><p>Your score: <b>${score}</b><br>Best score: ${best}</p><button id="again">RACE AGAIN 🏁</button>`;document.getElementById('again').onclick=start;}
-function start(){traffic.forEach(c=>scene.remove(c));traffic.length=0;score=0;elapsed=0;spawn=0;speed=19;steer=0;player.position.x=0;running=true;last=0;scoreEl.textContent='0';speedEl.textContent='1x';statusEl.textContent='Racing!';overlay.style.display='none';requestAnimationFrame(loop);}
-function loop(t){if(!running)return;const dt=Math.min((t-last)/1000||.016,.04);last=t;elapsed+=dt;speed=19+Math.min(18,score*.035);steer=(keys.ArrowLeft||keys.a?-1:0)+(keys.ArrowRight||keys.d?1:0);player.position.x=THREE.MathUtils.clamp(player.position.x+steer*9*dt,-4.35,4.35);player.rotation.z=-steer*.09;
-for(const d of dashes){d.position.z+=speed*dt;if(d.position.z>12)d.position.z-=216;}
-spawn-=dt;if(spawn<=0){addTraffic();spawn=Math.max(.65,1.45-score*.0015);}
-for(let i=traffic.length-1;i>=0;i--){const c=traffic[i];c.position.z+=speed*dt;if(c.position.z>15){scene.remove(c);traffic.splice(i,1);score+=10;scoreEl.textContent=score;}
-if(Math.abs(c.position.x-player.position.x)<1.45&&Math.abs(c.position.z-player.position.z)<2.25){end();return;}}
-camera.position.x+=(player.position.x*.28-camera.position.x)*dt*2;camera.lookAt(player.position.x*.18,0,-15);
-speedEl.textContent=(speed/19).toFixed(1)+'x';renderer.render(scene,camera);requestAnimationFrame(loop);}
-document.getElementById('start').onclick=start;
-document.addEventListener('keydown',e=>{if(['ArrowLeft','ArrowRight'].includes(e.key))e.preventDefault();keys[e.key]=true;});
-document.addEventListener('keyup',e=>keys[e.key]=false);
-function hold(id,key){const b=document.getElementById(id);b.addEventListener('pointerdown',e=>{e.preventDefault();keys[key]=true;});['pointerup','pointerleave','pointercancel'].forEach(ev=>b.addEventListener(ev,()=>keys[key]=false));}
-hold('left','ArrowLeft');hold('right','ArrowRight');
-renderer.render(scene,camera);
+  'use strict';
+
+  // --- DOM References ---
+  const canvas = document.getElementById('game-canvas');
+  const stage = document.getElementById('stage');
+  const overlay = document.getElementById('overlay');
+  const startBtn = document.getElementById('start-btn');
+
+  // HUD Elements
+  const hudScore = document.getElementById('hud-score');
+  const hudBest = document.getElementById('hud-best');
+  const hudSpeed = document.getElementById('hud-speed');
+  const hudTrafficBtn = document.getElementById('hud-traffic-btn');
+  const hudTrafficDot = document.getElementById('hud-traffic-dot');
+  const hudTrafficLabel = document.getElementById('hud-traffic-label');
+
+  // Modal Elements
+  const modalTitle = document.getElementById('modal-title');
+  const modalSubtitle = document.getElementById('modal-subtitle');
+  const modalDesc = document.getElementById('modal-desc');
+  const modalBadge = document.getElementById('modal-badge');
+  const gameoverStats = document.getElementById('gameover-stats');
+  const finalScoreEl = document.getElementById('final-score');
+  const finalBestEl = document.getElementById('final-best');
+  const modalTrafficToggle = document.getElementById('modal-traffic-toggle');
+  const modalToggleThumb = document.getElementById('modal-toggle-thumb');
+  const modalModeTag = document.getElementById('modal-mode-tag');
+  const modalModeHint = document.getElementById('modal-mode-hint');
+
+  // Verify Three.js loaded
+  if (!window.THREE) {
+    modalTitle.textContent = '3D ENGINE ERROR';
+    modalDesc.textContent = 'Unable to load Three.js. Please check your internet connection and reload.';
+    startBtn.style.display = 'none';
+    return;
+  }
+
+  // --- Game Configuration & State ---
+  const LANES = [-4.3, 0, 4.3];
+  const POOL_SIZE = 14; // Pre-allocated NPC car pool (zero runtime allocations)
+  const BASE_SPEED = 20;
+  const MAX_BONUS_SPEED = 20;
+
+  let npcEnabled = true;
+  let running = false;
+  let score = 0;
+  let distanceScoreAccum = 0;
+  let best = Number(localStorage.getItem('turboRacer3DBest') || 0);
+  let speed = BASE_SPEED;
+  let spawnTimer = 0;
+  let lastTime = 0;
+  let steerInput = 0;
+
+  hudBest.textContent = best;
+
+  // --- Three.js Scene & Renderer Setup ---
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x87ceeb);
+  scene.fog = new THREE.Fog(0x87ceeb, 40, 155);
+
+  const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 200);
+  camera.position.set(0, 7.2, 13);
+  camera.lookAt(0, 0, -15);
+
+  const renderer = new THREE.WebGLRenderer({
+    canvas,
+    antialias: true,
+    powerPreference: 'high-performance'
+  });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+  // Lighting
+  const hemiLight = new THREE.HemisphereLight(0xffffff, 0x4d7c42, 1.45);
+  scene.add(hemiLight);
+
+  const sunLight = new THREE.DirectionalLight(0xffffff, 1.35);
+  sunLight.position.set(-10, 22, 12);
+  sunLight.castShadow = true;
+  sunLight.shadow.mapSize.width = 1024;
+  sunLight.shadow.mapSize.height = 1024;
+  sunLight.shadow.camera.near = 2;
+  sunLight.shadow.camera.far = 75;
+  const d = 22;
+  sunLight.shadow.camera.left = -d;
+  sunLight.shadow.camera.right = d;
+  sunLight.shadow.camera.top = d;
+  sunLight.shadow.camera.bottom = -d;
+  scene.add(sunLight);
+
+  // --- Shared Geometries & Materials (Memory & GPU Optimization) ---
+  const sharedGeo = {
+    body: new THREE.BoxGeometry(1.55, 0.55, 2.7),
+    hood: new THREE.BoxGeometry(1.35, 0.18, 0.72),
+    cabin: new THREE.BoxGeometry(1.13, 0.62, 1.22),
+    roof: new THREE.BoxGeometry(1.1, 0.12, 0.95),
+    wheel: new THREE.CylinderGeometry(0.28, 0.28, 0.18, 14),
+    lamp: new THREE.BoxGeometry(0.24, 0.12, 0.06)
+  };
+  // Pre-rotate shared wheel geometry once instead of rotating 4 wheels per car
+  sharedGeo.wheel.rotateZ(Math.PI / 2);
+
+  const sharedMat = {
+    road: new THREE.MeshStandardMaterial({ color: 0x2f353d, roughness: 0.85 }),
+    grass: new THREE.MeshStandardMaterial({ color: 0x338a4e, roughness: 0.9 }),
+    line: new THREE.MeshBasicMaterial({ color: 0xf8fafc }), // Unlit for crisp lane markings & zero shading cost
+    tire: new THREE.MeshStandardMaterial({ color: 0x15191e, roughness: 0.85 }),
+    glass: new THREE.MeshStandardMaterial({ color: 0x9ed9e8, roughness: 0.2, metalness: 0.1 }),
+    lamp: new THREE.MeshBasicMaterial({ color: 0xfff3b0 }),
+    playerPaint: new THREE.MeshStandardMaterial({ color: 0x06b6d4, roughness: 0.32 }),
+    npcPaints: [
+      new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.35 }), // Red
+      new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.35 }), // Amber
+      new THREE.MeshStandardMaterial({ color: 0x8b5cf6, roughness: 0.35 }), // Violet
+      new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.35 }), // Pearl White
+      new THREE.MeshStandardMaterial({ color: 0x10b981, roughness: 0.35 }), // Emerald
+      new THREE.MeshStandardMaterial({ color: 0xec4899, roughness: 0.35 })  // Pink
+    ]
+  };
+
+  // --- Environment Construction ---
+  const road = new THREE.Mesh(new THREE.PlaneGeometry(13, 230), sharedMat.road);
+  road.rotation.x = -Math.PI / 2;
+  road.position.z = -80;
+  road.receiveShadow = true;
+  scene.add(road);
+
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(240, 250), sharedMat.grass);
+  ground.rotation.x = -Math.PI / 2;
+  ground.position.set(0, -0.06, -80);
+  ground.receiveShadow = true;
+  scene.add(ground);
+
+  // Solid outer shoulder lines
+  const edgeGeo = new THREE.BoxGeometry(0.16, 0.03, 230);
+  for (const x of [-6.35, 6.35]) {
+    const edge = new THREE.Mesh(edgeGeo, sharedMat.line);
+    edge.position.set(x, 0.02, -80);
+    scene.add(edge);
+  }
+
+  // Dashed lane dividers (shared geometry)
+  const dashGeo = new THREE.BoxGeometry(0.13, 0.03, 5);
+  const dashes = [];
+  for (const x of [-2.15, 2.15]) {
+    for (let z = 10; z > -206; z -= 12) {
+      const dash = new THREE.Mesh(dashGeo, sharedMat.line);
+      dash.position.set(x, 0.025, z);
+      scene.add(dash);
+      dashes.push(dash);
+    }
+  }
+
+  // --- Efficient Car Factory using Shared Geometries ---
+  function createCarMesh(paintMaterial) {
+    const group = new THREE.Group();
+
+    const body = new THREE.Mesh(sharedGeo.body, paintMaterial);
+    body.position.y = 0.62;
+    body.castShadow = true;
+    group.add(body);
+
+    const hood = new THREE.Mesh(sharedGeo.hood, paintMaterial);
+    hood.position.set(0, 0.94, -0.78);
+    group.add(hood);
+
+    const cabin = new THREE.Mesh(sharedGeo.cabin, sharedMat.glass);
+    cabin.position.set(0, 1.12, 0.22);
+    cabin.castShadow = true;
+    group.add(cabin);
+
+    const roof = new THREE.Mesh(sharedGeo.roof, paintMaterial);
+    roof.position.set(0, 1.45, 0.22);
+    group.add(roof);
+
+    for (const x of [-0.83, 0.83]) {
+      for (const z of [-0.82, 0.85]) {
+        const wheel = new THREE.Mesh(sharedGeo.wheel, sharedMat.tire);
+        wheel.position.set(x, 0.42, z);
+        group.add(wheel);
+      }
+    }
+
+    for (const x of [-0.48, 0.48]) {
+      const lamp = new THREE.Mesh(sharedGeo.lamp, sharedMat.lamp);
+      lamp.position.set(x, 0.75, -1.37);
+      group.add(lamp);
+    }
+
+    // Store references to painted meshes so pooled NPC cars can swap colors effortlessly
+    group.userData.paintedMeshes = [body, hood, roof];
+    return group;
+  }
+
+  // Player Car
+  const player = createCarMesh(sharedMat.playerPaint);
+  player.position.set(0, 0, 5);
+  scene.add(player);
+
+  // Pre-allocated Object Pool for NPC Traffic Cars
+  const npcPool = [];
+  for (let i = 0; i < POOL_SIZE; i++) {
+    const npc = createCarMesh(sharedMat.npcPaints[i % sharedMat.npcPaints.length]);
+    npc.scale.setScalar(0.92);
+    npc.visible = false;
+    npc.userData.active = false;
+    scene.add(npc);
+    npcPool.push(npc);
+  }
+
+  // --- NPC Traffic Toggle Logic (Works in Modal & Live HUD) ---
+  function setNpcTrafficEnabled(enabled) {
+    npcEnabled = Boolean(enabled);
+
+    // Update Modal Switch UI
+    modalTrafficToggle.setAttribute('aria-checked', String(npcEnabled));
+    if (npcEnabled) {
+      modalTrafficToggle.classList.remove('bg-slate-600');
+      modalTrafficToggle.classList.add('bg-emerald-500');
+      modalToggleThumb.classList.remove('translate-x-0');
+      modalToggleThumb.classList.add('translate-x-6');
+
+      modalModeTag.textContent = 'Traffic Mode';
+      modalModeTag.className = 'text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30';
+      modalModeHint.textContent = 'Dodge oncoming highway vehicles';
+
+      // Update Live HUD Pill
+      hudTrafficDot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_10px_#34d399]';
+      hudTrafficLabel.textContent = 'ON (Traffic)';
+    } else {
+      modalTrafficToggle.classList.remove('bg-emerald-500');
+      modalTrafficToggle.classList.add('bg-slate-600');
+      modalToggleThumb.classList.remove('translate-x-6');
+      modalToggleThumb.classList.add('translate-x-0');
+
+      modalModeTag.textContent = 'Free Drive';
+      modalModeTag.className = 'text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-400/30';
+      modalModeHint.textContent = 'No NPC cars — chill open-road cruise';
+
+      // Update Live HUD Pill
+      hudTrafficDot.className = 'w-2.5 h-2.5 rounded-full bg-cyan-400 shadow-[0_0_10px_#22d3ee]';
+      hudTrafficLabel.textContent = 'OFF (Free Drive)';
+
+      // Immediately clear/hide all active NPC cars from the road
+      clearAllNpcCars();
+    }
+
+    // Re-render frame immediately if paused so user sees road clear right away
+    if (!running) {
+      renderer.render(scene, camera);
+    }
+  }
+
+  function clearAllNpcCars() {
+    for (let i = 0; i < POOL_SIZE; i++) {
+      const car = npcPool[i];
+      car.visible = false;
+      car.userData.active = false;
+    }
+  }
+
+  function spawnNpcCar() {
+    if (!npcEnabled) return;
+
+    // Find an inactive car in the pre-allocated pool
+    let car = null;
+    for (let i = 0; i < POOL_SIZE; i++) {
+      if (!npcPool[i].userData.active) {
+        car = npcPool[i];
+        break;
+      }
+    }
+    if (!car) return;
+
+    // Pick a random lane, avoiding immediate overlap with recently spawned cars
+    const laneIndex = Math.floor(Math.random() * 3);
+    const laneX = LANES[laneIndex];
+
+    // Swap shared paint material for visual variety without creating new materials
+    const randomPaint = sharedMat.npcPaints[Math.floor(Math.random() * sharedMat.npcPaints.length)];
+    const meshes = car.userData.paintedMeshes;
+    for (let j = 0; j < meshes.length; j++) {
+      meshes[j].material = randomPaint;
+    }
+
+    car.position.set(laneX, 0, -110);
+    car.visible = true;
+    car.userData.active = true;
+  }
+
+  // Toggle event listeners
+  modalTrafficToggle.addEventListener('click', () => setNpcTrafficEnabled(!npcEnabled));
+  hudTrafficBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    setNpcTrafficEnabled(!npcEnabled);
+    hudTrafficBtn.blur();
+  });
+
+  // --- Responsive Canvas Resize ---
+  function handleResize() {
+    const width = stage.clientWidth;
+    const height = stage.clientHeight;
+    if (width === 0 || height === 0) return;
+    renderer.setSize(width, height, false);
+    camera.aspect = width / height;
+    camera.updateProjectionMatrix();
+    if (!running) {
+      renderer.render(scene, camera);
+    }
+  }
+  new ResizeObserver(handleResize).observe(stage);
+  handleResize();
+
+  // --- Game Lifecycle ---
+  function startGame() {
+    clearAllNpcCars();
+    score = 0;
+    distanceScoreAccum = 0;
+    spawnTimer = 0.2;
+    speed = BASE_SPEED;
+    steerInput = 0;
+    player.position.x = 0;
+    player.rotation.z = 0;
+    camera.position.x = 0;
+
+    hudScore.textContent = '0';
+    hudSpeed.textContent = '1.0x';
+
+    overlay.classList.add('opacity-0', 'pointer-events-none');
+    running = true;
+    lastTime = performance.now();
+    requestAnimationFrame(gameLoop);
+  }
+
+  function endGame() {
+    running = false;
+    if (score > best) {
+      best = score;
+      hudBest.textContent = best;
+      localStorage.setItem('turboRacer3DBest', String(best));
+    }
+
+    // Update Modal for Game Over state
+    modalSubtitle.textContent = 'Collision Detected';
+    modalSubtitle.className = 'text-xs font-extrabold uppercase tracking-[0.2em] text-rose-400 mb-1';
+    modalTitle.textContent = 'RACE OVER';
+    modalDesc.textContent = 'Watch your lane spacing as highway speeds climb!';
+
+    modalBadge.className = 'mx-auto mb-4 w-16 h-16 rounded-2xl bg-gradient-to-br from-rose-500 to-orange-600 flex items-center justify-center shadow-lg shadow-rose-500/30';
+    modalBadge.innerHTML = `
+      <svg class="w-9 h-9 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+      </svg>
+    `;
+
+    gameoverStats.classList.remove('hidden');
+    gameoverStats.classList.add('grid');
+    finalScoreEl.textContent = score;
+    finalBestEl.textContent = best;
+    startBtn.textContent = 'RACE AGAIN';
+
+    overlay.classList.remove('opacity-0', 'pointer-events-none');
+  }
+
+  // --- Optimized Main Animation Loop ---
+  function gameLoop(now) {
+    if (!running) return;
+
+    const dt = Math.min((now - lastTime) / 1000, 0.05);
+    lastTime = now;
+
+    // Smooth speed progression
+    speed = BASE_SPEED + Math.min(MAX_BONUS_SPEED, score * 0.032);
+
+    // Steering calculation
+    const targetSteer = (keys.left ? -1 : 0) + (keys.right ? 1 : 0);
+    steerInput += (targetSteer - steerInput) * Math.min(1, dt * 14);
+    player.position.x = THREE.MathUtils.clamp(player.position.x + steerInput * 9.5 * dt, -4.45, 4.45);
+    player.rotation.z = -steerInput * 0.095;
+
+    // Scroll road dashes
+    const moveStep = speed * dt;
+    for (let i = 0; i < dashes.length; i++) {
+      const dash = dashes[i];
+      dash.position.z += moveStep;
+      if (dash.position.z > 14) {
+        dash.position.z -= 216;
+      }
+    }
+
+    if (npcEnabled) {
+      // Traffic Mode: Spawn and update pooled NPC cars
+      spawnTimer -= dt;
+      if (spawnTimer <= 0) {
+        spawnNpcCar();
+        spawnTimer = Math.max(0.58, 1.4 - score * 0.0014);
+      }
+
+      const px = player.position.x;
+      const pz = player.position.z;
+
+      for (let i = 0; i < POOL_SIZE; i++) {
+        const car = npcPool[i];
+        if (!car.userData.active) continue;
+
+        car.position.z += moveStep;
+
+        // Recycle car once it passes behind camera
+        if (car.position.z > 16) {
+          car.visible = false;
+          car.userData.active = false;
+          score += 10;
+          hudScore.textContent = score;
+          if (score > best) {
+            best = score;
+            hudBest.textContent = best;
+          }
+          continue;
+        }
+
+        // Fast AABB collision check
+        if (Math.abs(car.position.x - px) < 1.42 && Math.abs(car.position.z - pz) < 2.22) {
+          endGame();
+          return;
+        }
+      }
+    } else {
+      // Free Drive Mode: Smoothly award distance points while cruising without traffic
+      distanceScoreAccum += moveStep * 0.45;
+      if (distanceScoreAccum >= 1) {
+        const gained = Math.floor(distanceScoreAccum);
+        distanceScoreAccum -= gained;
+        score += gained;
+        hudScore.textContent = score;
+        if (score > best) {
+          best = score;
+          hudBest.textContent = best;
+        }
+      }
+    }
+
+    // Smooth camera follow
+    camera.position.x += (player.position.x * 0.3 - camera.position.x) * dt * 3;
+    camera.lookAt(player.position.x * 0.2, 0, -15);
+
+    // Update HUD Speedometer
+    hudSpeed.textContent = (speed / BASE_SPEED).toFixed(1) + 'x';
+
+    renderer.render(scene, camera);
+    requestAnimationFrame(gameLoop);
+  }
+
+  // --- Input Handling (Keyboard + Multi-touch Buttons) ---
+  const keys = { left: false, right: false };
+
+  window.addEventListener('keydown', (e) => {
+    const k = e.key.toLowerCase();
+    if (k === 'arrowleft' || k === 'a') {
+      e.preventDefault();
+      keys.left = true;
+      document.getElementById('btn-left').classList.add('active');
+    } else if (k === 'arrowright' || k === 'd') {
+      e.preventDefault();
+      keys.right = true;
+      document.getElementById('btn-right').classList.add('active');
+    } else if ((k === 'enter' || k === ' ') && !running) {
+      e.preventDefault();
+      startGame();
+    }
+  });
+
+  window.addEventListener('keyup', (e) => {
+    const k = e.key.toLowerCase();
+    if (k === 'arrowleft' || k === 'a') {
+      keys.left = false;
+      document.getElementById('btn-left').classList.remove('active');
+    } else if (k === 'arrowright' || k === 'd') {
+      keys.right = false;
+      document.getElementById('btn-right').classList.remove('active');
+    }
+  });
+
+  function bindTouchButton(btnId, dirKey) {
+    const btn = document.getElementById(btnId);
+    const press = (e) => {
+      e.preventDefault();
+      keys[dirKey] = true;
+      btn.classList.add('active');
+    };
+    const release = (e) => {
+      e.preventDefault();
+      keys[dirKey] = false;
+      btn.classList.remove('active');
+    };
+    btn.addEventListener('pointerdown', press);
+    btn.addEventListener('pointerup', release);
+    btn.addEventListener('pointerleave', release);
+    btn.addEventListener('pointercancel', release);
+  }
+
+  bindTouchButton('btn-left', 'left');
+  bindTouchButton('btn-right', 'right');
+
+  startBtn.addEventListener('click', startGame);
+
+  // Initial render of the 3D scene behind the glassmorphic start modal
+  setNpcTrafficEnabled(true);
+  renderer.render(scene, camera);
 })();
 </script>
 </body>
